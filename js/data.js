@@ -2,7 +2,7 @@
 'use strict';
 (function (root) {
   const I = typeof module !== 'undefined' && module.exports ? require('./input-core.js') : root.LR.I;
-  const VERSION = '3.1.0';
+  const VERSION = '3.2.0';
 
   // ───────────── Profil : pseudo et photo (un personnage existant, aucune image importée) ─────────────
   const DEFAULT_NAME = 'Coursier';

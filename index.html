@@ -23,7 +23,7 @@
 <link rel="apple-touch-startup-image" media="screen and (device-width: 414px) and (device-height: 896px) and (-webkit-device-pixel-ratio: 2) and (orientation: portrait)" href="icons/splash-828x1792.png">
 <link rel="apple-touch-startup-image" media="screen and (device-width: 375px) and (device-height: 667px) and (-webkit-device-pixel-ratio: 2) and (orientation: portrait)" href="icons/splash-750x1334.png">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%2307021a'/%3E%3Crect x='14' y='12' width='36' height='42' rx='16' fill='%233ef2ff'/%3E%3Crect x='27' y='21' width='21' height='14' rx='7' fill='%23120626'/%3E%3Crect x='34' y='24' width='3' height='8' rx='1.5' fill='%23fff'/%3E%3Crect x='40' y='24' width='3' height='8' rx='1.5' fill='%23fff'/%3E%3C/svg%3E">
-<link rel="stylesheet" href="css/style.css?v=3.1">
+<link rel="stylesheet" href="css/style.css?v=3.2">
 </head>
 <body>
 <canvas id="game" aria-label="Luma Rush"></canvas>
@@ -98,6 +98,7 @@
 <section id="prep" class="screen" aria-label="Préparation">
   <div class="sheet">
     <div class="sheet-head"><button class="btn back" data-back>←</button><h2 id="prepTitle">PRÉPARATION</h2><div class="pill"><i class="shard"></i><b class="coinsNow">0</b></div></div>
+    <div class="battle-ways" id="battleWays" hidden><button class="btn primary" id="soloBtn">JOUER EN SOLO</button><button class="btn" id="friendsBtn">JOUER AVEC MES AMIS</button><button class="btn" id="groupBoardBtn">CLASSEMENT DU GROUPE</button></div>
     <h3>Personnage</h3><div class="chars" id="prepChars"></div>
     <h3>Compétences <small id="prepSlots"></small></h3><div class="chips" id="prepSkills"></div>
     <div id="prepWeaponBox"><h3>Arme <small id="prepWeaponNote"></small></h3><div class="chips" id="prepWeapons"></div></div>
@@ -181,7 +182,7 @@
     <div class="xp-line" id="resXp"></div>
     <div class="panel missions-panel"><div id="resMissions"></div></div>
     <div class="rank-up" id="resRankUp" hidden></div>
-    <div class="row"><button id="againBtn" class="btn primary big">REJOUER</button><button id="resMenuBtn" class="btn">MENU</button></div>
+    <div class="row"><button id="againBtn" class="btn primary big">REJOUER</button><button id="resGroupBtn" class="btn" hidden>CLASSEMENT DU GROUPE</button><button id="resMenuBtn" class="btn">MENU</button></div>
     <p class="hint" id="resHint"><kbd>ESPACE</kbd> pour rejouer instantanément</p>
   </div>
 </section>
@@ -206,19 +207,19 @@
   });
 })();
 </script>
-<script src="js/input-core.js?v=3.1"></script>
-<script src="js/data.js?v=3.1"></script>
-<script src="js/engine.js?v=3.1"></script>
-<script src="js/progress.js?v=3.1"></script>
-<script src="js/session.js?v=3.1"></script>
-<script src="js/bosses.js?v=3.1"></script>
-<script src="js/run.js?v=3.1"></script>
-<script src="js/battle.js?v=3.1"></script>
-<script src="js/controls.js?v=3.1"></script>
-<script src="js/profile.js?v=3.1"></script>
-<script src="js/config.js?v=3.1"></script>
-<script src="js/online.js?v=3.1"></script>
-<script src="js/ui.js?v=3.1"></script>
+<script src="js/input-core.js?v=3.2"></script>
+<script src="js/data.js?v=3.2"></script>
+<script src="js/engine.js?v=3.2"></script>
+<script src="js/progress.js?v=3.2"></script>
+<script src="js/session.js?v=3.2"></script>
+<script src="js/bosses.js?v=3.2"></script>
+<script src="js/run.js?v=3.2"></script>
+<script src="js/battle.js?v=3.2"></script>
+<script src="js/controls.js?v=3.2"></script>
+<script src="js/profile.js?v=3.2"></script>
+<script src="js/config.js?v=3.2"></script>
+<script src="js/online.js?v=3.2"></script>
+<script src="js/ui.js?v=3.2"></script>
 
 <script>
 if ('serviceWorker' in navigator) {

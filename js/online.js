@@ -87,7 +87,25 @@
     return { configured, session, rpc, queue, flush, waiting: () => (read(PENDING) || []).length };
   }
 
-  if (typeof module !== 'undefined' && module.exports) { module.exports = { makeClient, isPublicKey, MESSAGES }; return; }
+  // Classé par score (RUN) ou par vague puis score (BATTLE) ; les égalités partagent le même rang.
+  function rank(rows, m) {
+    const val = r => (r[m] ? [m === 'battle' ? r[m].wave : r[m].score, r[m].score] : [-1, -1]);
+    const sorted = rows.slice().sort((a, b) => val(b)[0] - val(a)[0] || val(b)[1] - val(a)[1] || a.name.localeCompare(b.name));
+    let place = 0, prev = '';
+    return sorted.map((r, i) => { const k = val(r).join(); if (k !== prev) { place = i + 1; prev = k; } return Object.assign({ place: r[m] ? place : null }, r); });
+  }
+  // Amis dont le résultat a changé depuis la lecture précédente (seen : mémoire d'un groupe et d'un mode, mise à jour ici).
+  function news(seen, rows, m) {
+    const first = !seen.size, out = [];
+    for (const r of rows) {
+      const v = JSON.stringify(r[m] || null);
+      if (!first && r[m] && !r.me && seen.get(r.id) !== v && seen.has(r.id)) out.push(r.id);
+      seen.set(r.id, v);
+    }
+    return out;
+  }
+
+  if (typeof module !== 'undefined' && module.exports) { module.exports = { makeClient, isPublicKey, MESSAGES, rank, news }; return; }
 
   // ───────────── Jeu et interface ─────────────
   const LR = root.LR, D = LR.D, E = LR.E, P = LR.P, Pr = LR.Pr, O = (LR.Online = {});
@@ -103,7 +121,9 @@
     const c = api();
     ticket = c.configured && c.session() ? c.rpc('lr_start_game', { p_mode: mode }).catch(() => null) : null;
   };
-  O.finish = async function (sum) {
+  let sending = Promise.resolve();
+  O.finish = sum => (sending = send(sum).catch(() => {}));
+  async function send(sum) {
     const t = ticket; ticket = null;
     if (!t) return;
     const id = await t;
@@ -111,7 +131,12 @@
     const int = v => Math.max(0, Math.floor(v || 0)), run = sum.mode === 'run';
     api().queue({ p_ticket: id, p_score: int(sum.score), p_dist: run ? int(sum.dist) : 0, p_wave: run ? 0 : int(sum.wave), p_kills: run ? 0 : int(sum.kills) });
     report(await api().flush());
-  };
+  }
+  O.hasAccount = () => api().configured && !!api().session();
+  // Ouvre le classement sur un mode précis ; play ajoute le lancement d'une partie BATTLE (« Jouer avec mes amis »).
+  let play = false;
+  O.focus = (m, withPlay) => { if (m) mode = m; play = !!withPlay; };
+  const memory = new Map(), fresh = new Map(); // dernières valeurs lues ; amis à marquer « NOUVEAU » (1 minute)
   function report(results) {
     if (results.some(r => r.best)) toast('Nouveau record envoyé au classement', '★');
     else if (results.some(r => r.error)) toast(MESSAGES.score_refuse, '✕');
@@ -169,6 +194,7 @@
     box.append(st);
     const g = groups && groups.find(x => x.id === current);
     if (!g || adding) {
+      if (play) box.append(el('p', 'ol-intro', 'Pour jouer avec tes amis : rejoins leur groupe avec le code, ou crée le tien.'));
       joinForms(box);
       if (g) box.append(button('RETOUR AU CLASSEMENT', '', () => { adding = false; build(); loadBoard(); }));
       return;
@@ -184,6 +210,13 @@
     const tabs = el('div', 'tabs');
     for (const [id, name] of [['run', 'RUN'], ['battle', 'BATTLE']]) { const b = el('button', id === mode ? 'on' : '', name); b.dataset.m = id; b.onclick = () => { mode = id; build(); loadBoard(); }; tabs.append(b); }
     const list = el('div', 'ol-list'); list.id = 'olList';
+    const summary = el('p', 'ol-summary'); summary.id = 'olSummary';
+    let launch = null;
+    if (play && mode === 'battle') {
+      launch = el('div', 'ol-launch');
+      launch.append(button('▶ LANCER MA PARTIE BATTLE', 'primary big', () => LR.UI.playBattle()),
+        el('p', 'hint', 'Chacun joue quand il veut sur son appareil. Ton meilleur score BATTLE compte dans tous tes groupes.'));
+    }
     const actions = el('div', 'row');
     actions.append(button('ACTUALISER', '', () => loadBoard()), button('AUTRE GROUPE', '', () => { adding = true; build(); }),
       button('QUITTER LE GROUPE', 'danger', () => LR.UI.confirm('Quitter le groupe ?', `Tu ne verras plus le classement de « ${g.name} ». Ta progression dans le jeu est conservée.`, null, () => act(async () => {
@@ -192,7 +225,7 @@
     if (g.owner) actions.append(button('NOUVEAU CODE', '', () => LR.UI.confirm('Changer le code ?', 'L’ancien code ne fonctionnera plus. Les membres actuels restent dans le groupe.', null, () => act(async () => {
       await api().rpc('lr_new_code', { p_group: g.id }); toast('Nouveau code créé', '✓'); await enter(g.id);
     }))));
-    box.append(head, tabs, list, actions);
+    box.append(head, ...(launch ? [launch] : []), tabs, summary, list, actions);
   }
 
   function share(g) {
@@ -202,14 +235,6 @@
     if (navigator.share) navigator.share({ text, url }).catch(e => { if (e.name !== 'AbortError') copy(); }); else copy();
   }
 
-  // Classé par score (RUN) ou par vague puis score (BATTLE) ; les égalités partagent le même rang.
-  O.rank = function (rows, m) {
-    const val = r => (r[m] ? [m === 'battle' ? r[m].wave : r[m].score, r[m].score] : [-1, -1]);
-    const sorted = rows.slice().sort((a, b) => val(b)[0] - val(a)[0] || val(b)[1] - val(a)[1] || a.name.localeCompare(b.name));
-    let place = 0, prev = '';
-    return sorted.map((r, i) => { const k = val(r).join(); if (k !== prev) { place = i + 1; prev = k; } return Object.assign({ place: r[m] ? place : null }, r); });
-  };
-
   async function loadBoard() {
     const g = groups && groups.find(x => x.id === current), mine = ++view, m = mode;
     if (!g || adding) return;
@@ -217,11 +242,19 @@
       const rows = await api().rpc('lr_board', { p_group: g.id });
       const list = $('olList'); if (mine !== view || !list) return;
       list.textContent = '';
-      for (const r of O.rank(rows || [], m)) {
+      const key = g.id + m;
+      if (!memory.has(key)) memory.set(key, new Map());
+      const changed = news(memory.get(key), rows || [], m);
+      for (const id of changed) fresh.set(key + id, Date.now() + 60000);
+      if (changed.length) toast(changed.length > 1 ? 'Nouveaux scores de tes amis' : `Nouveau score de ${rows.find(r => r.id === changed[0]).name}`, '★');
+      const total = (rows || []).length, scored = (rows || []).filter(r => r[m]).length;
+      $('olSummary').textContent = `${total} membre${total > 1 ? 's' : ''} · ${scored} avec un score ${m.toUpperCase()}` + (total > scored ? ` · ${total - scored} sans score` : '');
+      for (const r of rank(rows || [], m)) {
         const avatar = D.byId(D.CHARACTERS, r.avatar) ? r.avatar : 'luma';
-        const row = el('div', 'ol-row' + (r.me ? ' me' : '') + (r.place && r.place <= 3 ? ' top' + r.place : ''));
+        const row = el('div', 'ol-row' + (r.me ? ' me' : '') + (r[m] ? '' : ' empty') + (r.place && r.place <= 3 ? ' top' + r.place : ''));
         const who = el('span', 'identity'); who.append(Pr.avatar(36, avatar, 'default'), el('b', null, r.name));
         if (r.me) who.append(el('em', null, 'MOI'));
+        else if (fresh.get(key + r.id) > Date.now()) who.append(el('em', 'new', 'NOUVEAU'));
         const score = el('span', 'ol-score');
         if (r[m]) score.append(el('b', null, m === 'run' ? fmt(r[m].score) : 'Vague ' + r[m].wave), el('small', null, m === 'run' ? fmt(r[m].dist) + ' m' : `${fmt(r[m].score)} pts · ${r[m].kills} ennemis`));
         else score.append(el('small', null, 'Pas encore de score'));
@@ -248,6 +281,7 @@
     if (!c.session()) { groups = []; build(); return; } // aucun compte créé tant que le joueur n'a rien demandé
     if (!groups) { box.textContent = ''; box.append(el('p', 'ol-status', 'Connexion au classement…')); }
     try {
+      await sending;
       report(await c.flush());
       groups = (await c.rpc('lr_my_groups')) || [];
       if (!groups.some(g => g.id === current)) current = groups.length ? groups[0].id : null;
@@ -273,4 +307,6 @@
     }, 15000);
   };
   addEventListener('online', () => { if (api().configured && api().session()) api().flush().then(report); });
+  // Retour sur le jeu (téléphone déverrouillé, autre application) : le classement ouvert se met à jour tout de suite.
+  document.addEventListener('visibilitychange', () => { if (!document.hidden && timer && boardOpen() && !busy && current && !adding) loadBoard(); });
 })(typeof window !== 'undefined' ? window : this);

@@ -510,3 +510,18 @@ select:focus-visible, #nameInput:focus-visible { outline: 2px solid var(--cyan);
 .ol-score { display: grid; text-align: right; font-variant-numeric: tabular-nums; }
 .ol-kick { flex: none; width: 44px; height: 44px; margin-right: -6px; border: 0; background: none; color: #ff8aa6; font-size: 22px; cursor: pointer; }
 @media (max-width: 430px) { .ol-row { gap: 6px; padding: 6px; } .ol-place { width: 18px; } .ol-score small { font-size: 10.5px; } .ol-kick { width: 36px; } }
+
+/* BATTLE entre amis */
+.battle-ways { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin-bottom: 6px; }
+.battle-ways[hidden] { display: none !important; }
+.battle-ways .btn { min-height: 48px; padding-left: 8px; padding-right: 8px; }
+@media (max-width: 560px) { .battle-ways { grid-template-columns: minmax(0, 1fr); } }
+.ol-intro { font-weight: 800; }
+.ol-launch { display: grid; justify-items: center; gap: 6px; text-align: center; }
+.ol-launch .btn { width: 100%; max-width: 460px; }
+.ol-summary { color: var(--muted); font-size: 12.5px; font-weight: 800; }
+.ol-row.empty { border-style: dashed; }
+.ol-row.empty .identity { opacity: .75; }
+.ol-row em.new { background: var(--gold); }
+/* Téléphones étroits : la pastille répétait l'onglet actif et coupait le titre « CLASSEMENT » en deux. */
+@media (max-width: 480px) { #boardPill { display: none; } }

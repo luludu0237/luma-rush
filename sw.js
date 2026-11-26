@@ -1,7 +1,7 @@
 /* Luma Rush — service worker : tout le jeu est mis en cache à l'installation, puis servi hors ligne.
    À chaque nouvelle version du jeu, changer VERSION (et le ?v= de index.html) pour que les joueurs reçoivent la mise à jour. */
 'use strict';
-const VERSION = 'luma-rush-3.1';
+const VERSION = 'luma-rush-3.2';
 const FILES = [
   './', 'index.html', 'manifest.webmanifest', 'css/style.css',
   'js/input-core.js', 'js/controls.js', 'js/profile.js', 'js/data.js', 'js/engine.js', 'js/progress.js', 'js/session.js', 'js/bosses.js', 'js/run.js', 'js/battle.js', 'js/config.js', 'js/online.js', 'js/ui.js',

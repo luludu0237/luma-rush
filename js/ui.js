@@ -76,6 +76,7 @@
   // ───────────── Menu principal ─────────────
   let sideTab = 'missions', logoTaps = [];
   RENDER.hub = function () {
+    LR.Online.focus(null, false);
     P.ensureTasks();
     const li = P.level();
     drawAvatar();
@@ -137,6 +138,7 @@
     }
     const ch = D.byId(D.CHARACTERS, save.char), wb = $('prepWeapons'); wb.textContent = '';
     $('prepWeaponBox').hidden = prepMode !== 'battle';
+    $('battleWays').hidden = prepMode !== 'battle';
     $('prepWeaponNote').textContent = ch.attack === 'melee' ? `${ch.name} combat en mêlée : l’arme n’est pas utilisée` : '';
     for (const w of D.WEAPONS.filter(w => save.weapons.includes(w.id))) {
       const b = el('button', 'chip' + (save.weapon === w.id ? ' on' : ''));
@@ -469,6 +471,7 @@
     const rank = D.rankFor(save.completed);
     $('resRankUp').hidden = !out.rankUp; $('resRankUp').textContent = `RANG ${rank} — multiplicateur x${rank} à la prochaine partie !`;
     $('resHint').hidden = isTouch;
+    $('resGroupBtn').hidden = mode !== 'battle' || !LR.Online.hasAccount();
     const rid = $('resIdentity'); rid.textContent = ''; rid.append(Pr.identity(36));
     $('resScore').textContent = '0'; overAnim = { to: sum.score, t: 0 };
     show('results'); overReady = false; setTimeout(() => { overReady = true; }, 450);
@@ -650,6 +653,11 @@
   $('runBtn').onclick = () => { prepMode = 'run'; go('prep'); };
   $('battleBtn').onclick = () => { prepMode = 'battle'; go('prep'); };
   $('startBtn').onclick = () => startGame(prepMode);
+  const groupBoard = withPlay => { boardView = 'online'; boardTab = 'battle'; LR.Online.focus('battle', withPlay); go('board'); };
+  $('soloBtn').onclick = () => startGame('battle');
+  $('friendsBtn').onclick = () => groupBoard(true);
+  $('groupBoardBtn').onclick = () => groupBoard(false);
+  $('resGroupBtn').onclick = () => { if (!overReady) return; toMenu(); groupBoard(true); };
   document.querySelectorAll('[data-go]').forEach(b => { b.onclick = () => go(b.dataset.go); });
   document.querySelectorAll('[data-back]').forEach(b => { b.onclick = () => { E.sfx('click'); RENDER.hub(); show('hub'); }; });
   $('settingsBtn').onclick = () => go('settings');
@@ -799,7 +807,7 @@
     });
   }
 
-  Object.assign(UI, { charCanvas, confirm: confirmBox, go, state: () => state, useSkill });
+  Object.assign(UI, { charCanvas, confirm: confirmBox, go, state: () => state, useSkill, playBattle: () => startGame('battle') });
 
   // ───────────── Démarrage ─────────────
   const t0 = performance.now();
