@@ -1,0 +1,232 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#07021a">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Luma Rush">
+<meta name="application-name" content="Luma Rush">
+<meta name="description" content="Jeu d’arcade néon : course infinie, combats en arène, boss et collection.">
+<title>Luma Rush</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<link rel="icon" type="image/png" sizes="32x32" href="icons/favicon-32.png">
+<link rel="apple-touch-startup-image" media="screen and (device-width: 440px) and (device-height: 956px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" href="icons/splash-1320x2868.png">
+<link rel="apple-touch-startup-image" media="screen and (device-width: 402px) and (device-height: 874px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" href="icons/splash-1206x2622.png">
+<link rel="apple-touch-startup-image" media="screen and (device-width: 430px) and (device-height: 932px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" href="icons/splash-1290x2796.png">
+<link rel="apple-touch-startup-image" media="screen and (device-width: 393px) and (device-height: 852px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" href="icons/splash-1179x2556.png">
+<link rel="apple-touch-startup-image" media="screen and (device-width: 390px) and (device-height: 844px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" href="icons/splash-1170x2532.png">
+<link rel="apple-touch-startup-image" media="screen and (device-width: 375px) and (device-height: 812px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" href="icons/splash-1125x2436.png">
+<link rel="apple-touch-startup-image" media="screen and (device-width: 414px) and (device-height: 896px) and (-webkit-device-pixel-ratio: 2) and (orientation: portrait)" href="icons/splash-828x1792.png">
+<link rel="apple-touch-startup-image" media="screen and (device-width: 375px) and (device-height: 667px) and (-webkit-device-pixel-ratio: 2) and (orientation: portrait)" href="icons/splash-750x1334.png">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%2307021a'/%3E%3Crect x='14' y='12' width='36' height='42' rx='16' fill='%233ef2ff'/%3E%3Crect x='27' y='21' width='21' height='14' rx='7' fill='%23120626'/%3E%3Crect x='34' y='24' width='3' height='8' rx='1.5' fill='%23fff'/%3E%3Crect x='40' y='24' width='3' height='8' rx='1.5' fill='%23fff'/%3E%3C/svg%3E">
+<link rel="stylesheet" href="css/style.css?v=3.0">
+</head>
+<body>
+<canvas id="game" aria-label="Luma Rush"></canvas>
+<div id="splash" aria-label="Chargement"><div class="sp-glow"></div><div class="logo"><span class="l1">LUMA</span><span class="l2">RUSH</span></div><div class="sp-bar"><i id="spFill"></i></div><small id="spText">Chargement…</small></div>
+
+<!-- ───────── HUD en jeu ───────── -->
+<div id="hud" aria-hidden="true">
+  <div class="hud-l">
+    <div class="score"><span id="hScore">0</span><em id="hMult">x1</em></div>
+    <div class="hud-sub" id="hSub"></div>
+    <div class="hearts" id="hHearts"></div>
+    <div class="pws" id="hPows"></div>
+  </div>
+  <div class="hud-r">
+    <div class="pill"><i class="shard"></i><span id="hCoins">0</span></div>
+    <button id="pauseBtn" class="btn icon" aria-label="Pause" tabindex="-1"><svg viewBox="0 0 24 24"><path d="M7 5h4v14H7zM13 5h4v14h-4z"/></svg></button>
+  </div>
+</div>
+<div id="bossBar" hidden><div class="boss-name"><b id="bossName"></b><small id="bossTitle"></small></div><div class="boss-track"><i id="bossFill"></i></div></div>
+<div id="skillBar"></div>
+<div id="touchRun"><div class="l"><span id="thL"></span></div><div class="r"><span id="thR"></span></div></div>
+<div id="touchBattle" aria-label="Commandes tactiles"></div>
+<div id="safeProbe" aria-hidden="true"></div>
+<div id="banner" aria-live="polite"><b id="bTitle"></b><span id="bSub"></span></div>
+<div id="count"></div>
+<div id="toasts" aria-live="polite"></div>
+
+<!-- ───────── Menu principal ───────── -->
+<section id="hub" class="screen" aria-label="Menu principal">
+  <div class="hub">
+    <header class="hub-top">
+      <div class="profile" id="profile">
+        <canvas id="avatar" width="120" height="120"></canvas>
+        <div class="pf-main">
+          <div class="pf-row"><b id="pfName">Coursier</b><span class="lvl" id="pfLevel"></span></div>
+          <div class="xpbar"><i id="pfXp"></i></div>
+          <small id="pfXpText"></small>
+        </div>
+        <div class="pill coins"><i class="shard"></i><b id="pfCoins">0</b></div>
+      </div>
+      <button class="btn icon" id="settingsBtn" aria-label="Réglages"><svg viewBox="0 0 24 24"><path d="M19.4 13a7.6 7.6 0 0 0 0-2l2.1-1.6-2-3.5-2.5 1a7.4 7.4 0 0 0-1.7-1L15 3h-4l-.4 2.7a7.4 7.4 0 0 0-1.7 1l-2.5-1-2 3.5L6.6 11a7.6 7.6 0 0 0 0 2l-2.1 1.6 2 3.5 2.5-1c.5.4 1.1.7 1.7 1L11 21h4l.4-2.7c.6-.3 1.2-.6 1.7-1l2.5 1 2-3.5zM13 15.5a3.5 3.5 0 1 1 0-7 3.5 3.5 0 0 1 0 7z"/></svg></button>
+    </header>
+    <div class="hub-body">
+      <div class="hub-main">
+        <h1 class="logo" id="logo" aria-label="Luma Rush"><span class="l1">LUMA</span><span class="l2">RUSH</span></h1>
+        <div class="modes">
+          <button class="mode run" id="runBtn"><span class="mode-ic"><svg viewBox="0 0 24 24"><path d="M13.5 5.5a2 2 0 1 0 0-4 2 2 0 0 0 0 4zM9.8 8.9 7 23h2.1l1.8-8 2.1 2v6h2v-7.5l-2.1-2 .6-3A7.3 7.3 0 0 0 19 13v-2a5.1 5.1 0 0 1-4.4-2.4l-1-1.6a2 2 0 0 0-2.5-.8L6 8.3V13h2V9.6z"/></svg></span><b>RUN MODE</b><small id="runBest">Course infinie</small></button>
+          <button class="mode battle" id="battleBtn"><span class="mode-ic"><svg viewBox="0 0 24 24"><path d="M6.9 3 3 3v3.9l7.2 7.2-2.8 2.8-1.4-1.4L4.6 17l2 2-2.6 2.6L5.4 23 8 20.4l2 2 1.4-1.4-1.4-1.4 2.8-2.8 7.2 7.2H21v-3.9L6.9 3zM21 3h-3.9l-5.6 5.6 3.9 3.9L21 6.9z"/></svg></span><b>BATTLE MODE</b><small id="battleBest">Vagues &amp; boss</small></button>
+        </div>
+        <nav class="navgrid">
+          <button data-go="shop"><svg viewBox="0 0 24 24"><path d="M7 18a2 2 0 1 0 0 4 2 2 0 0 0 0-4zM1 2v2h2l3.6 7.6L5.2 14A2 2 0 0 0 7 17h12v-2H7.4l1.1-2h7.5a2 2 0 0 0 1.8-1l3.6-6.5A1 1 0 0 0 20.5 4H5.2l-.9-2zm16 16a2 2 0 1 0 0 4 2 2 0 0 0 0-4z"/></svg>BOUTIQUE</button>
+          <button id="charsBtn"><svg viewBox="0 0 24 24"><path d="M16 11a3 3 0 1 0 0-6 3 3 0 0 0 0 6zm-8 0a3 3 0 1 0 0-6 3 3 0 0 0 0 6zm0 2c-2.3 0-7 1.2-7 3.5V19h14v-2.5C15 14.200 10.300 13 8 13zm8 0c-.3 0-.6 0-1 .1 1.2.8 2 2 2 3.4V19h6v-2.5c0-2.3-4.7-3.5-7-3.5z"/></svg>PERSONNAGES</button>
+          <button id="profileBtn"><svg viewBox="0 0 24 24"><path d="M12 12a5 5 0 1 0 0-10 5 5 0 0 0 0 10zm0 2c-3.3 0-10 1.7-10 5v3h20v-3c0-3.3-6.7-5-10-5z"/></svg>PROFIL</button>
+          <button data-go="collection"><svg viewBox="0 0 24 24"><path d="M4 6H2v14a2 2 0 0 0 2 2h14v-2H4zm16-4H8a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V4a2 2 0 0 0-2-2zm-1 9h-4v4h-2v-4H9V9h4V5h2v4h4z"/></svg>COLLECTION</button>
+          <button data-go="custom"><svg viewBox="0 0 24 24"><path d="M12 3a9 9 0 0 0 0 18c.8 0 1.5-.7 1.5-1.5 0-.4-.2-.7-.4-1a1.5 1.5 0 0 1 1.1-2.5H16a5 5 0 0 0 5-5c0-4.4-4-8-9-8zm-5.5 9a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3zm3-4a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3zm5 0a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3zm3 4a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3z"/></svg>PERSON&shy;NALISATION</button>
+          <button data-go="achievements"><svg viewBox="0 0 24 24"><path d="M19 5h-2V3H7v2H5a2 2 0 0 0-2 2v1a5 5 0 0 0 4.4 5A5 5 0 0 0 11 15.9V19H7v2h10v-2h-4v-3.1a5 5 0 0 0 3.6-2.9A5 5 0 0 0 21 8V7a2 2 0 0 0-2-2zM5 8V7h2v3.8A3 3 0 0 1 5 8zm14 0a3 3 0 0 1-2 2.8V7h2z"/></svg>SUCCÈS <em id="achCount"></em></button>
+          <button data-go="board"><svg viewBox="0 0 24 24"><path d="M16 11V3H8v6H2v12h20V11zm-6-6h4v14h-4zm-6 6h4v8H4zm16 8h-4v-6h4z"/></svg>CLASSEMENT</button>
+          <button data-go="settings"><svg viewBox="0 0 24 24"><path d="M3 17v2h6v-2zM3 5v2h10V5zm10 16v-2h8v-2h-8v-2h-2v6zM7 9v2H3v2h4v2h2V9zm14 4v-2H11v2zm-6-4h2V7h4V5h-4V3h-2z"/></svg>RÉGLAGES</button>
+        </nav>
+      </div>
+      <aside class="panel side">
+        <div class="tabs" id="sideTabs"><button data-t="missions" class="on">MISSIONS</button><button data-t="daily">JOUR</button><button data-t="weekly">SEMAINE</button></div>
+        <div id="sideBody"></div>
+        <div class="rank-row"><span>RANG <b id="mRank">1</b> · score <b id="mMult">x1</b></span><span class="pips" id="rankPips"><i></i><i></i><i></i></span></div>
+        <button class="btn streak" id="streakBtn"></button>
+      </aside>
+    </div>
+  </div>
+</section>
+
+<!-- ───────── Préparation ───────── -->
+<section id="prep" class="screen" aria-label="Préparation">
+  <div class="sheet">
+    <div class="sheet-head"><button class="btn back" data-back>←</button><h2 id="prepTitle">PRÉPARATION</h2><div class="pill"><i class="shard"></i><b class="coinsNow">0</b></div></div>
+    <h3>Personnage</h3><div class="chars" id="prepChars"></div>
+    <h3>Compétences <small id="prepSlots"></small></h3><div class="chips" id="prepSkills"></div>
+    <div id="prepWeaponBox"><h3>Arme <small id="prepWeaponNote"></small></h3><div class="chips" id="prepWeapons"></div></div>
+    <h3>Reliques <small id="prepRelicSlots"></small></h3><div class="chips" id="prepRelics"></div>
+    <div class="ctrl-help" id="prepHelp"></div>
+    <button class="btn primary big start" id="startBtn">C’EST PARTI</button>
+  </div>
+</section>
+
+<!-- ───────── Boutique / Collection / Personnalisation / Succès / Classement / Réglages ───────── -->
+<section id="shop" class="screen" aria-label="Boutique"><div class="sheet"><div class="sheet-head"><button class="btn back" data-back>←</button><h2>BOUTIQUE</h2><div class="pill"><i class="shard"></i><b class="coinsNow">0</b></div></div><div class="tabs wide" id="shopTabs"></div><div class="grid" id="shopGrid"></div></div></section>
+<section id="collection" class="screen" aria-label="Collection"><div class="sheet"><div class="sheet-head"><button class="btn back" data-back>←</button><h2>COLLECTION</h2><span class="pill" id="colCount"></span></div><div class="tabs wide" id="colTabs"></div><div class="grid" id="colGrid"></div></div></section>
+<section id="custom" class="screen" aria-label="Personnalisation"><div class="sheet"><div class="sheet-head"><button class="btn back" data-back>←</button><h2>PERSONNALISATION</h2><div class="pill"><i class="shard"></i><b class="coinsNow">0</b></div></div><h3>Thèmes <small>changent le décor, les couleurs, la musique et l’interface (deux modes)</small></h3><div class="grid" id="themeGrid"></div><h3>Apparence de <span id="skinFor"></span></h3><div class="grid" id="skinGrid"></div></div></section>
+<section id="achievements" class="screen" aria-label="Succès"><div class="sheet"><div class="sheet-head"><button class="btn back" data-back>←</button><h2>SUCCÈS</h2><span class="pill" id="achTotal"></span></div><div class="list" id="achList"></div></div></section>
+<section id="board" class="screen" aria-label="Classement"><div class="sheet"><div class="sheet-head"><button class="btn back" data-back>←</button><h2>CLASSEMENT</h2><span class="pill" id="boardPill">Local · cet appareil</span></div><div class="tabs" id="boardViews"><button data-t="online">ENTRE AMIS</button><button data-t="local" class="on">CET APPAREIL</button></div><div id="onlineBox" hidden></div><div id="localBox"><div class="stats-grid" id="statGrid"></div><div class="tabs" id="boardTabs"><button data-t="run" class="on">RUN</button><button data-t="battle">BATTLE</button></div><table class="table" id="boardTable"></table></div></div></section>
+<section id="settings" class="screen" aria-label="Réglages"><div class="sheet narrow"><div class="sheet-head"><button class="btn back" data-back>←</button><h2>RÉGLAGES</h2><span></span></div>
+  <h3>Profil</h3><div class="setline"><span id="setIdentity"></span><button class="btn" id="editProfileBtn">MODIFIER PSEUDO ET PHOTO</button></div>
+  <h3>Audio</h3>
+  <div class="setline"><button class="btn" id="sfxBtn">EFFETS SONORES</button><label class="range">Volume <input type="range" id="sfxVol" min="0" max="100" step="5"><output id="sfxVolVal"></output></label></div>
+  <div class="setline"><button class="btn" id="musicBtn">MUSIQUE</button><label class="range">Volume <input type="range" id="musicVol" min="0" max="100" step="5"><output id="musicVolVal"></output></label></div>
+  <h3>Graphismes &amp; performances</h3>
+  <div class="setline"><label for="qualitySel">Qualité</label><select id="qualitySel"><option value="auto">Auto (allège si l’appareil ralentit)</option><option value="high">Élevée</option><option value="low">Économie (téléphones modestes)</option></select></div>
+  <div class="setline"><label class="check-line"><input type="checkbox" id="shakeChk"> Secousses de l’écran</label></div>
+  <h3>Commandes clavier (PC)</h3><div class="setline"><button class="btn" id="keysBtn">PERSONNALISER LES TOUCHES</button></div>
+  <h3>Commandes tactiles</h3>
+  <div class="setline"><label for="runTouchSel">RUN MODE</label><select id="runTouchSel"><option value="buttons">Deux boutons : SAUT et GLISSE</option><option value="tap">Toucher = sauter · maintenir = glisser</option><option value="zones">Zones : gauche glisser · droite sauter (saut dosable)</option></select></div>
+  <div class="setline"><button class="btn" id="touchEditRunBtn">PERSONNALISER LE RUN</button><button class="btn" id="touchEditBtn">PERSONNALISER LE BATTLE</button><button class="btn" id="touchResetBtn">RÉINITIALISER</button></div>
+  <h3>Aide des commandes</h3><div class="ctrl-help" id="helpAll"></div>
+  <h3>Compte</h3><p class="ctrl-help" id="accountInfo">Aucun compte en ligne pour le moment : ta progression est enregistrée sur cet appareil. Utilise le transfert ci-dessous pour la retrouver ailleurs.</p>
+  <h3>Installer l’application</h3><div class="ctrl-help" id="installHelp"></div>
+  <div class="row"><button class="btn primary" id="installBtn" hidden>INSTALLER LUMA RUSH</button><button class="btn" id="fsBtn" hidden>PLEIN ÉCRAN</button></div>
+  <h3>Transférer la sauvegarde <small>entre navigateur, application installée et Mac</small></h3>
+  <div class="row"><button class="btn" id="exportBtn">EXPORTER</button><button class="btn" id="importBtn">IMPORTER</button></div>
+  <div id="xferBox" hidden>
+    <textarea id="saveCode" spellcheck="false" autocomplete="off" rows="4" aria-label="Code de sauvegarde"></textarea>
+    <div class="row" id="exportRow"><button class="btn" id="copyCode">COPIER LE CODE</button><button class="btn" id="dlCode">TÉLÉCHARGER LE FICHIER</button></div>
+    <div class="row" id="importRow"><button class="btn primary" id="loadCode">CHARGER CE CODE</button><button class="btn" id="pickFile">CHOISIR UN FICHIER</button></div>
+    <input type="file" id="importFile" accept=".json,application/json,text/plain" hidden>
+  </div>
+  <h3>Crédits des ressources</h3><div class="credits" id="credits"></div>
+  <p class="hint" id="versionInfo"></p>
+  <h3>Zone de danger</h3><button class="btn danger" id="resetBtn">RÉINITIALISER LA PROGRESSION</button>
+</div></section>
+
+<!-- ───────── Pause / Fin / Vague / Révélation / Confirmation ───────── -->
+<section id="pause" class="screen" aria-label="Pause"><div class="card panel"><h2 class="title">PAUSE</h2><div class="row"><button id="resumeBtn" class="btn primary">REPRENDRE</button><button id="quitBtn" class="btn">MENU</button></div></div></section>
+<section id="profilePage" class="screen" aria-label="Profil"><div class="sheet narrow"><div class="sheet-head"><button class="btn back" data-back>←</button><h2>PROFIL</h2><span></span></div>
+  <div class="pfhead panel" id="pfHead"></div>
+  <div class="row"><button class="btn primary" id="pfEdit">MODIFIER PSEUDO ET PHOTO</button><button class="btn" id="pfAchBtn">SUCCÈS</button><button class="btn" id="pfBoardBtn">CLASSEMENT</button></div>
+  <h3>Progression</h3><div class="stats-grid" id="pfProgress"></div>
+  <h3>Records</h3><div class="stats-grid" id="pfRecords"></div>
+  <h3>Statistiques</h3><div class="stats-grid" id="pfStats"></div>
+  <h3>Derniers succès</h3><div class="list" id="pfAch"></div>
+</div></section>
+<section id="editprofile" class="screen" aria-label="Modifier le profil"><div class="sheet narrow"><div class="sheet-head"><span></span><h2>MON PROFIL</h2><span></span></div>
+  <label class="field" for="nameInput">Pseudo</label><input id="nameInput" maxlength="16" autocomplete="off" spellcheck="false">
+  <p class="field-error" id="nameError" aria-live="polite"></p>
+  <div class="preview panel" id="avatarPreview"></div>
+  <h3>Photo de profil <small>tes personnages Luma Rush</small></h3><div class="avatargrid" id="avatarGrid"></div>
+  <div class="row sticky-actions"><button class="btn primary" id="profileSave">CONFIRMER</button><button class="btn" id="profileCancel">ANNULER</button></div>
+</div></section>
+<section id="keys" class="screen" aria-label="Touches du clavier"><div class="sheet narrow"><div class="sheet-head"><button class="btn back" id="keysBack">←</button><h2>TOUCHES</h2><span></span></div>
+  <div class="tabs" id="keyTabs"></div><p class="hint" id="keyHint" aria-live="polite"></p><div class="keylist" id="keyList"></div>
+  <div class="row"><button class="btn" id="keyReset">RÉINITIALISER LES TOUCHES</button><button class="btn" id="keyResetAll">TOUT RÉINITIALISER</button></div>
+</div></section>
+<section id="touchedit" class="screen" aria-label="Éditeur de commandes tactiles"><div class="te-bar">
+  <div class="te-top"><b id="teName"></b><small id="teOrient"></small></div>
+  <label class="range">Taille <input type="range" id="teSize" min="70" max="150" step="5"><output id="teSizeVal"></output></label>
+  <label class="range">Opacité <input type="range" id="teOpacity" min="25" max="100" step="5"><output id="teOpacityVal"></output></label>
+  <p class="te-warn" id="teWarn" aria-live="polite"></p>
+  <div class="row"><button class="btn" id="teReset">RÉINITIALISER</button><button class="btn primary" id="teDone">TERMINER</button></div>
+  <small class="hint">Glisse chaque commande pour la déplacer. Tourne l’appareil pour régler l’autre orientation.</small>
+</div></section>
+<section id="results" class="screen" aria-label="Fin de partie">
+  <div class="card">
+    <h2 class="title glitch" id="resTitle">GAME OVER</h2>
+    <div class="res-id" id="resIdentity"></div>
+    <div class="new-record" id="resRecord" hidden>★ NOUVEAU RECORD ★</div>
+    <div class="final"><span id="resScore">0</span><small id="resUnit">POINTS</small></div>
+    <div class="stats" id="resStats"></div>
+    <div class="xp-line" id="resXp"></div>
+    <div class="panel missions-panel"><div id="resMissions"></div></div>
+    <div class="rank-up" id="resRankUp" hidden></div>
+    <div class="row"><button id="againBtn" class="btn primary big">REJOUER</button><button id="resMenuBtn" class="btn">MENU</button></div>
+    <p class="hint" id="resHint"><kbd>ESPACE</kbd> pour rejouer instantanément</p>
+  </div>
+</section>
+<section id="boost" class="screen" aria-label="Bonus de vague"><div class="card wide"><h2 class="title" id="boostTitle">VAGUE TERMINÉE</h2><p class="hint">Choisis un bonus pour la suite</p><div class="boosts" id="boostList"></div></div></section>
+<section id="reveal" class="screen" aria-label="Récompense"><div class="reveal" id="revealCard"><div class="rays"></div><small id="rvSource"></small><div class="rv-art" id="rvArt"></div><div class="rv-rarity" id="rvRarity"></div><h2 id="rvName"></h2><p id="rvDesc"></p><button class="btn primary" id="rvOk">SUPER !</button></div></section>
+<section id="confirm" class="screen" aria-label="Confirmation"><div class="card panel"><h2 class="title small" id="cfTitle"></h2><p id="cfText"></p><input id="cfInput" autocomplete="off" hidden><div class="row"><button class="btn danger" id="cfYes">CONFIRMER</button><button class="btn" id="cfNo">ANNULER</button></div></div></section>
+
+<script>
+// Garde-fou : si un fichier du jeu n'a pas chargé (réseau instable), on recharge une fois, puis on l'explique clairement.
+(function () {
+  var failed = false;
+  addEventListener('error', function (e) { if (e.target && e.target.tagName === 'SCRIPT') failed = true; }, true);
+  addEventListener('load', function () {
+    var done = window.LR && ['I', 'D', 'E', 'P', 'G', 'B', 'Run', 'Battle', 'C', 'Pr', 'Online', 'UI'].every(function (k) { return LR[k]; });
+    if (done && !failed) { try { sessionStorage.removeItem('luma-retry'); } catch (e) {} return; }
+    try { if (!sessionStorage.getItem('luma-retry')) { sessionStorage.setItem('luma-retry', '1'); location.reload(); return; } } catch (e) {}
+    var sp = document.getElementById('splash'); if (!sp) return;
+    sp.classList.remove('gone');
+    document.getElementById('spText').textContent = 'Chargement incomplet';
+    var b = document.createElement('button'); b.className = 'btn primary'; b.textContent = 'RECHARGER';
+    b.onclick = function () { location.reload(); }; sp.appendChild(b);
+  });
+})();
+</script>
+<script src="js/input-core.js?v=3.0"></script>
+<script src="js/data.js?v=3.0"></script>
+<script src="js/engine.js?v=3.0"></script>
+<script src="js/progress.js?v=3.0"></script>
+<script src="js/session.js?v=3.0"></script>
+<script src="js/bosses.js?v=3.0"></script>
+<script src="js/run.js?v=3.0"></script>
+<script src="js/battle.js?v=3.0"></script>
+<script src="js/controls.js?v=3.0"></script>
+<script src="js/profile.js?v=3.0"></script>
+<script src="js/config.js?v=3.0"></script>
+<script src="js/online.js?v=3.0"></script>
+<script src="js/ui.js?v=3.0"></script>
+
+<script>
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('./sw.js')
+      .catch(error => console.error('Erreur PWA :', error));
+  });
+}
+</script>
+</body>
+</html>
