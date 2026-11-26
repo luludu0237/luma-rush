@@ -58,13 +58,13 @@
   const pbox = () => { const b = PL.sliding ? PBOX.slide : PBOX.stand; return { x: E.PX + b[0], y: PL.alt + b[1], w: b[2], h: b[3] }; };
   const obox = o => { const b = o.d.box; return { x: o.x + b[0], y: o.y + b[1], w: b[2], h: b[3] }; };
 
-  Run.start = function (demo) {
+  Run.start = function (demo, easy) {
     const s = save(), mods = demo ? D.mods(s, s.char) : G.mods;
     R = {
-      demo, t: 0, dist: 0, speed: demo ? 260 : SPEED_BASE * 0.6, score: 0, coins: 0, mult: D.rankFor(s.completed), rankStart: D.rankFor(s.completed), mods,
+      demo, easy: !!easy, livesUsed: 0, t: 0, dist: 0, speed: demo ? 260 : SPEED_BASE * 0.6, score: 0, coins: 0, mult: D.rankFor(s.completed), rankStart: D.rankFor(s.completed), mods,
       obs: [], shards: [], pows: [], mets: [], cores: [], shots: [], sinceSpawn: 0, nextSpawn: 700, nextPower: rand(220, 380), nextEvent: rand(420, 620),
       event: null, lastEvent: '', meteorT: 0, zone: demo ? 0 : -1, power: { shield: false, magnet: 0, hyper: 0, x2: 0, star: 0 }, grace: 0,
-      combo: 0, comboT: 0, recordDone: s.bestDist < 50, demoT: 1.2, demoRel: 0, nextMilestone: 1000,
+      combo: 0, comboT: 0, recordDone: (easy ? s.easy.bestDist : s.bestDist) < 50, demoT: 1.2, demoRel: 0, nextMilestone: 1000,
       nextBoss: D.BOSS_EVERY, boss: null, bossCount: 0, bossHit: false, bossWonT: 0, coreT: 0,
       laser: 0, skShield: 0, drone: 0, droneT: 0, droneShots: [], usedShieldPower: false, eggDone: false, capsules: 0, eclipse: false, greed: false,
     };
@@ -160,7 +160,7 @@
   const addShard = (x, alt) => R.shards.push({ x, alt, t: rand(0, 6), mag: false });
   function spawnPower(x, m) {
     const pw = R.power;
-    if (m > 800 && Math.random() < 0.06) { R.pows.push({ x, alt: 56, type: 'capsule', t: 0 }); return; }
+    if (!R.easy && m > 800 && Math.random() < 0.06) { R.pows.push({ x, alt: 56, type: 'capsule', t: 0 }); return; }
     const opts = Object.keys(POW).filter(k => (k === 'shield' ? !pw.shield : pw[k] <= 0) && (k !== 'star' || m > 600));
     if (opts.length) R.pows.push({ x, alt: 56, type: opts[Math.floor(Math.random() * opts.length)], t: 0 });
   }
@@ -180,7 +180,7 @@
     for (const p of pool) if ((k -= p.w) <= 0) { pat = p; break; }
     let right = x0;
     for (const o of pat.make(x0, s)) { r.obs.push(o); right = Math.max(right, o.x + o.w); }
-    const gap = D.gapFor(s, m, Math.random()) * (ev === 'meteor' ? 1.6 : ev === 'moon' ? 1.5 : 1);
+    const gap = D.gapFor(s, m, Math.random()) * (r.easy ? D.EASY.gap : 1) * (ev === 'meteor' ? 1.6 : ev === 'moon' ? 1.5 : 1);
     if (pat.arc && Math.random() < 0.45) { // arc d'éclats qui suit exactement la trajectoire d'un saut complet
       const T = 2 * JUMP_V / GRAVITY, cx = (x0 + right) / 2;
       for (let i = 0; i < 7; i++) { const t = (i / 6) * T; addShard(cx + (t - T / 2) * s, JUMP_V * t - 0.5 * GRAVITY * t * t + 24); }
@@ -190,7 +190,7 @@
     }
     if (m >= r.nextPower) { spawnPower(right + gap * 0.5, m); r.nextPower = m + rand(380, 700); }
     // Secret : l'œuf doré, très haut, rarement.
-    if (!r.eggDone && m > 600 && Math.random() < 0.012) { r.eggDone = true; r.pows.push({ x: right + gap * 0.5, alt: 250, type: 'egg', t: 0 }); }
+    if (!r.easy && !r.eggDone && m > 600 && Math.random() < 0.012) { r.eggDone = true; r.pows.push({ x: right + gap * 0.5, alt: 250, type: 'egg', t: 0 }); }
     return right - x0 + gap;
   }
   function spawnMeteor() {
@@ -214,7 +214,7 @@
       r.event = { id: e.id, t: e.dur, def: e }; r.lastEvent = e.id; r.meteorT = 0.8;
       LR.UI.banner(e.name, e.sub, e.color); E.sfx(e.id === 'eclipse' ? 'rare' : 'event');
       if (e.id === 'rift') E.override = RIFT_PAL;
-      if (e.id === 'eclipse') { E.override = GOLD_PAL; r.eclipse = true; save().flags.eclipse = true; P.checkAch(); }
+      if (e.id === 'eclipse') { E.override = GOLD_PAL; r.eclipse = true; if (!r.easy) { save().flags.eclipse = true; P.checkAch(); } }
       return;
     }
     const e = r.event; e.t -= dt;
@@ -291,7 +291,7 @@
   // ───────────── Mise à jour ─────────────
   Run.update = function (dt) {
     const r = R, PX = E.PX, GY = E.GY;
-    let target = r.demo ? 260 : D.speedAt(r.dist);
+    let target = r.demo ? 260 : D.speedAt(r.dist * (r.easy ? D.EASY.ramp : 1));
     if (r.event && r.event.id === 'warp') target *= 1.3;
     if (r.power.hyper > 0) target *= 1.45;
     if (r.boss) target = Math.min(target, D.speedAt(r.dist) * 0.9);
@@ -322,14 +322,14 @@
         const k = r.nextMilestone / 1000, bonus = 20 * k;
         r.coins += bonus; r.nextMilestone += 1000;
         E.floatText(`${fmt(k * 1000)} m · +${bonus} ◆`, PX + 90, GY - 170, GOLD, 18); E.sfx('mission');
-        if (k === 1 && !G.shieldUsed && !r.usedShieldPower) { save().flags.noshield = true; P.checkAch(); }
+        if (k === 1 && !r.easy && !G.shieldUsed && !r.usedShieldPower) { save().flags.noshield = true; P.checkAch(); }
       }
-      if (!r.recordDone && m >= save().bestDist) {
+      if (!r.recordDone && m >= (r.easy ? save().easy.bestDist : save().bestDist)) {
         r.recordDone = true; E.floatText('RECORD DE DISTANCE !', PX + 80, GY - 140, GOLD, 20); E.sfx('mission');
         E.emit(PX + 40, GY - 120, 30, { c: GOLD, sp: 380, life: 0.8, size: 10, g: 400 });
       }
       P.stat('dist', Math.floor(m), true);
-      if (!r.boss && !r.event && r.score >= r.nextBoss) startBoss();
+      if (!r.easy && !r.boss && !r.event && r.score >= r.nextBoss) startBoss();
       if (r.boss) {
         B.update(r.boss, dt, bossCtx());
         if (r.boss.state === 'dead' && (r.bossWonT -= dt) <= 0) { r.boss = null; LR.UI.bossBar(null); LR.UI.flushReveals(); }
@@ -445,13 +445,19 @@
       r.power.shield = false; r.grace = 1; r.usedShieldPower = true; if (o) smash(o);
       E.sfx('shield'); E.flash = 0.35; E.floatText('BOUCLIER BRISÉ', E.PX + 30, E.GY - PL.alt - 84, POW.shield.color, 16); return;
     }
-    if (G.trySecond()) { // seconde chance
-      r.grace = 2.2; E.flash = 0.8; if (o) smash(o);
-      for (const x of r.obs) if (!x.dead && x.x < E.PX + 260 && x.x > E.PX - 40) smash(x, true);
-      B.hz.length = 0;
-      E.floatText('SECONDE CHANCE !', E.PX + 40, E.GY - PL.alt - 90, '#ff3e8a', 20); return;
+    if (G.trySecond()) { revive(o, 'SECONDE CHANCE !'); return; }
+    if (r.easy && D.useLife(save(), r.livesUsed)) { // vie achetée : enregistrée tout de suite, recharger la page ne la rend pas
+      r.livesUsed++; P.persist(); E.sfx('rare');
+      revive(o, `VIE UTILISÉE · RESTE ${save().lives}`); return;
     }
     die();
+  }
+  // Repartir après un coup fatal : court instant invulnérable et dangers proches dégagés.
+  function revive(o, text) {
+    R.grace = 2.2; E.flash = 0.8; if (o) smash(o);
+    for (const x of R.obs) if (!x.dead && x.x < E.PX + 260 && x.x > E.PX - 40) smash(x, true);
+    B.hz.length = 0;
+    E.floatText(text, E.PX + 40, E.GY - PL.alt - 90, '#ff3e8a', 20);
   }
   function smash(o, quiet) {
     if (o.dead) return;
@@ -510,8 +516,8 @@
     LR.UI.onDeath();
   }
   // Résumé transmis à l'écran de fin.
-  Run.summary = () => ({ mode: 'run', score: Math.floor(R.score), dist: Math.floor(R.dist / UNITS_PER_M), coins: R.coins, near: P.game.stats.near || 0, bosses: R.bossCount, rankStart: R.rankStart });
-  Run.hud = () => ({ score: Math.floor(R.score), mult: mult(), base: R.mult, coins: R.coins, power: R.power, skShield: R.skShield, boss: R.boss });
+  Run.summary = () => ({ mode: 'run', easy: R.easy, livesUsed: R.livesUsed, score: Math.floor(R.score), dist: Math.floor(R.dist / UNITS_PER_M), coins: R.coins, near: P.game.stats.near || 0, bosses: R.bossCount, rankStart: R.rankStart });
+  Run.hud = () => ({ easy: R.easy, livesUsed: R.livesUsed, score: Math.floor(R.score), mult: mult(), base: R.mult, coins: R.coins, power: R.power, skShield: R.skShield, boss: R.boss });
 
   // ───────────── Rendu ─────────────
   Run.render = function (g) {

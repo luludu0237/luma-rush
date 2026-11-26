@@ -4,7 +4,7 @@
   const D = LR.D, E = LR.E, P = LR.P, G = LR.G, I = LR.I, C = LR.C, Pr = LR.Pr, Run = LR.Run, Bt = LR.Battle;
   const $ = E.$, fmt = E.fmt, save = P.save, UI = (LR.UI = {});
   E.clock = 0; E.bgX = 0;
-  let state = 'menu', mode = null, screen = 'hub', prepMode = 'run', lastOpts = {}, deathT = 0, timeScale = 1, countT = 0, lastCount = 0;
+  let state = 'menu', mode = null, screen = 'hub', prepEasy = false, prepMode = 'run', lastOpts = {}, deathT = 0, timeScale = 1, countT = 0, lastCount = 0;
   let overReady = false, overAnim = null, hintT = 0, victory = false, afterReveal = null;
   let isTouch = matchMedia('(pointer: coarse)').matches;
   const el = (tag, cls, txt) => { const e = document.createElement(tag); if (cls) e.className = cls; if (txt != null) e.textContent = txt; return e; };
@@ -86,6 +86,7 @@
     $('pfXpText').textContent = li.need ? `${fmt(li.cur)} / ${fmt(li.need)} XP · ${title(li.level)}` : 'Niveau maximum';
     $('pfCoins').textContent = fmt(save.coins);
     $('runBest').textContent = save.best ? `Record ${fmt(save.best)} pts` : 'Course infinie · boss tous les 10 000 pts';
+    $('easyBest').textContent = save.easy.best ? `Sans boss · record ${fmt(save.easy.best)}` : 'Sans boss · plus tranquille';
     $('battleBest').textContent = save.bestWave ? `Meilleure vague : ${save.bestWave}` : 'Vagues d’ennemis · boss toutes les 5 vagues';
     const got = D.ACHIEVEMENTS.filter(a => save.ach[a.id]).length;
     $('achCount').textContent = `${got}/${D.ACHIEVEMENTS.length}`;
@@ -117,7 +118,10 @@
 
   // ───────────── Préparation (personnage, compétences, arme, reliques) ─────────────
   RENDER.prep = function () {
-    $('prepTitle').textContent = prepMode === 'run' ? 'RUN MODE' : 'BATTLE MODE';
+    const easy = prepMode === 'run' && prepEasy;
+    $('prepTitle').textContent = easy ? 'EASY MODE' : prepMode === 'run' ? 'RUN MODE' : 'BATTLE MODE';
+    $('easyNote').hidden = !easy;
+    $('easyLives').textContent = `♥ ${save.lives} vie${save.lives > 1 ? 's' : ''} en réserve · ${D.LIFE_PACK.perGame} utilisables par partie`;
     const chars = $('prepChars'); chars.textContent = '';
     for (const ch of D.CHARACTERS.filter(c => save.chars.includes(c.id))) {
       chars.append(card({ art: charCanvas(ch.id, save.skinByChar[ch.id], 80, { st: 'idle' }), name: ch.name, rarity: ch.rarity, perk: ch.perk.text + (prepMode === 'battle' ? ` · ${ch.attack === 'melee' ? 'Mêlée' : 'Distance'} · ${D.mods(save, ch.id).hp} PV` : ''), cls: save.char === ch.id ? 'eq' : '',
@@ -189,7 +193,7 @@
     RENDER.shop();
   }
   RENDER.shop = function () {
-    tabs($('shopTabs'), [['char', 'PERSONNAGES'], ['skill', 'COMPÉTENCES'], ['upgrade', 'AMÉLIORATIONS'], ['weapon', 'ARMES'], ['skin', 'SKINS'], ['theme', 'THÈMES'], ['capsule', 'CAPSULES']], shopTab, t => { shopTab = t; RENDER.shop(); });
+    tabs($('shopTabs'), [['life', 'VIES'], ['char', 'PERSONNAGES'], ['skill', 'COMPÉTENCES'], ['upgrade', 'AMÉLIORATIONS'], ['weapon', 'ARMES'], ['skin', 'SKINS'], ['theme', 'THÈMES'], ['capsule', 'CAPSULES']], shopTab, t => { shopTab = t; RENDER.shop(); });
     const grid = $('shopGrid'); grid.textContent = '';
     const status = (kind, def) => { const owned = D.owns(save, kind, def.id), price = D.priceOf(save, kind, def.id), met = D.reqMet(save, def.req); return { owned, price, met, text: owned ? 'POSSÉDÉ' : !met ? D.reqText(def.req) : price == null ? D.reqText(def.req) || 'Récompense' : null }; };
     if (shopTab === 'char') for (const ch of D.CHARACTERS) {
@@ -221,6 +225,18 @@
         status: s.text || 'ACHETER', price: s.text ? null : s.price, onClick: c => (s.owned || s.text ? refuse(c) : tryBuy('skin', sk.id, c)) }));
     }
     if (shopTab === 'theme') for (const t of D.THEMES) grid.append(themeCard(t, true));
+    if (shopTab === 'life') {
+      const P7 = D.LIFE_PACK, packs = Math.ceil(save.lives / P7.lives), full = save.lives + P7.lives > P7.max;
+      grid.append(card({ art: E.iconEl('gun:0,0', 64), name: 'Pack 7 vies', rarity: 'rare',
+        desc: `Donne ${P7.lives} vies supplémentaires pour le mode EASY : au lieu de perdre, tu repars. ${P7.perGame} vies maximum par partie.`,
+        perk: `Prix : ${P7.price} éclats · Tes vies : ${save.lives} / ${P7.max} · Packs disponibles en réserve : ${packs} / ${P7.max / P7.lives}`,
+        cls: full ? 'eq' : save.coins >= P7.price ? 'buyable' : '', status: full ? 'RÉSERVE PLEINE' : 'ACHETER', price: full ? null : P7.price, // la carte montre le prix ou l'état
+        onClick: c => {
+          if (full || save.coins < P7.price) { refuse(c); UI.toast(full ? 'Réserve de vies pleine' : 'Pas assez d’éclats', '✕'); return; }
+          // Confirmation : un double appui ou un appui par erreur n'achète rien.
+          confirmBox('Acheter un Pack 7 vies ?', `${P7.price} éclats gagnés en jouant (aucun argent réel). Tu auras ${save.lives + P7.lives} vies.`, null, () => tryBuy('lifepack', null, c));
+        } }));
+    }
     if (shopTab === 'capsule') {
       const odds = D.LOOT_TABLES.capsule, txt = D.RARITIES.map(r => `${RNAME(r)} ${odds[r]} %`).join(' · ');
       grid.append(card({ art: E.iconEl('rpg:71', 64), name: 'Capsule de faille', rarity: 'epic', desc: 'Un objet aléatoire jamais en double. Si toute la rareté tirée est déjà possédée : éclats en compensation.', perk: txt,
@@ -265,7 +281,7 @@
     if (colTab === 'item') for (const it of D.ITEMS) {
       const own = save.items.includes(it.id); tot++; if (own) n++;
       grid.append(card({ art: E.iconEl('rpg:' + it.idx, 56), name: own ? it.name : '???', rarity: it.rarity, desc: own ? 'Relique : ' + it.effText : 'Butin de boss, capsules, élites, succès', cls: own ? (save.relics.includes(it.id) ? 'eq' : '') : 'locked',
-        status: own ? (save.relics.includes(it.id) ? 'ÉQUIPÉE' : 'Équiper dans Préparation') : 'NON TROUVÉ', onClick: c => (own ? (prepMode = 'run', go('prep')) : refuse(c)) }));
+        status: own ? (save.relics.includes(it.id) ? 'ÉQUIPÉE' : 'Équiper dans Préparation') : 'NON TROUVÉ', onClick: c => (own ? (prepMode = 'run', prepEasy = false, go('prep')) : refuse(c)) }));
     }
     if (colTab === 'boss') for (const b of D.BOSSES) {
       const st = save.bosses[b.id] || { kills: 0, seen: 0 }; tot++; if (st.kills) n++;
@@ -322,16 +338,16 @@
   };
   function renderLocalBoard() {
     const s = save.stats, h = Math.floor(s.playTime / 3600), m = Math.floor((s.playTime % 3600) / 60);
-    const stats = [['Meilleur score Run', fmt(save.best)], ['Meilleure distance', fmt(save.bestDist) + ' m'], ['Meilleure vague', save.bestWave], ['Boss vaincus', s.bosses], ['Éclats gagnés', fmt(s.coinsEarned)],
+    const stats = [['Meilleur score Run', fmt(save.best)], ['Meilleure distance', fmt(save.bestDist) + ' m'], ['Meilleure vague', save.bestWave], ['Record EASY', fmt(save.easy.best)], ['Boss vaincus', s.bosses], ['Éclats gagnés', fmt(s.coinsEarned)],
       ['Personnages', `${save.chars.length}/${D.CHARACTERS.length}`], ['Parties jouées', s.games], ['Temps de jeu', `${h} h ${String(m).padStart(2, '0')}`], ['Ennemis éliminés', fmt(s.kills)], ['Objets', `${save.items.length}/${D.ITEMS.length}`]];
     const sg = $('statGrid'); sg.textContent = '';
     for (const [k, v] of stats) { const d = el('div'); d.append(el('b', null, String(v)), el('span', null, k)); sg.append(d); }
-    tabs($('boardTabs'), [['run', 'RUN'], ['battle', 'BATTLE']], boardTab, t => { boardTab = t; renderLocalBoard(); });
-    const tb = $('boardTable'), list = save.board[boardTab];
-    tb.innerHTML = boardTab === 'run' ? '<tr><th>#</th><th>JOUEUR</th><th>SCORE</th><th>DISTANCE</th><th class="opt">PERSO</th><th class="opt">DATE</th></tr>' : '<tr><th>#</th><th>JOUEUR</th><th>VAGUE</th><th>ENNEMIS</th><th class="opt">PERSO</th><th class="opt">DATE</th></tr>';
+    tabs($('boardTabs'), [['run', 'RUN'], ['battle', 'BATTLE'], ['easy', 'EASY']], boardTab, t => { boardTab = t; renderLocalBoard(); });
+    const tb = $('boardTable'), list = boardTab === 'easy' ? save.easy.board : save.board[boardTab], byScore = boardTab !== 'battle';
+    tb.innerHTML = byScore ? '<tr><th>#</th><th>JOUEUR</th><th>SCORE</th><th>DISTANCE</th><th class="opt">PERSO</th><th class="opt">DATE</th></tr>' : '<tr><th>#</th><th>JOUEUR</th><th>VAGUE</th><th>ENNEMIS</th><th class="opt">PERSO</th><th class="opt">DATE</th></tr>';
     list.forEach((e, i) => {
       const tr = el('tr'), ch = D.byId(D.CHARACTERS, e.char);
-      const cells = boardTab === 'run' ? [i + 1, fmt(e.score || 0), fmt(e.dist || 0) + ' m'] : [i + 1, e.wave || 0, e.kills || 0];
+      const cells = byScore ? [i + 1, fmt(e.score || 0), fmt(e.dist || 0) + ' m'] : [i + 1, e.wave || 0, e.kills || 0];
       cells.concat([ch ? ch.name : '?', e.date || '']).forEach((c, k) => tr.append(el('td', k >= cells.length ? 'opt' : null, String(c))));
       const who = el('td'); who.append(Pr.identity(28)); tr.insertBefore(who, tr.children[1]);
       tb.append(tr);
@@ -418,17 +434,19 @@
     });
   }
   const useSkill = i => { if (state !== 'play') return; (mode === 'run' ? Run : Bt).useSkill(i); };
+  const prepOpts = () => (prepMode === 'run' && prepEasy ? { easy: true } : undefined);
   function startGame(m, opts) {
     if (state === 'play' || state === 'dying' || state === 'resume') return;
     E.unlockAudio();
     mode = m; lastOpts = opts || {};
-    G.begin(m); P.startGame(m); LR.Online.begin(m);
+    const easy = m === 'run' && !!lastOpts.easy;
+    G.begin(m); P.startGame(m, easy); LR.Online.begin(easy ? null : m);
     C.unmount(); E.touchMode = touchModeFor(m); E.resize();
     Run.tapControls = isTouch && save.runControls === 'tap';
-    if (m === 'run') Run.start(false); else Bt.start(lastOpts);
+    if (m === 'run') Run.start(false, easy); else Bt.start(lastOpts);
     E.clearFx(); clearBanner(); victory = false;
     state = 'play'; hintT = 3.5; show(null); $('hud').classList.add('on');
-    $('hHearts').hidden = m !== 'battle'; $('hPows').hidden = m !== 'run';
+    $('hHearts').hidden = m !== 'battle'; $('hPows').hidden = m !== 'run'; $('hLives').hidden = !easy;
     setupControls();
     E.music.hot = true; E.music.boss = false;
     for (const k in hudCache) delete hudCache[k];
@@ -462,11 +480,14 @@
     E.music.hot = false; E.music.boss = false;
     $('resTitle').textContent = victory ? 'VICTOIRE' : 'GAME OVER';
     $('resRecord').hidden = !out.record;
-    $('resUnit').textContent = mode === 'run' ? 'POINTS' : 'POINTS · VAGUE ' + sum.wave;
+    $('resUnit').textContent = sum.easy ? 'POINTS · MODE EASY' : mode === 'run' ? 'POINTS' : 'POINTS · VAGUE ' + sum.wave;
+    $('resRecord').textContent = sum.easy ? '★ NOUVEAU RECORD EASY ★' : '★ NOUVEAU RECORD ★';
+    $('resMissions').parentElement.hidden = !!sum.easy;
     const stats = mode === 'run' ? [[fmt(sum.dist) + ' m', 'Distance'], ['+' + fmt(out.coins), 'Éclats'], [sum.near, 'Frôlés']] : [[sum.wave, 'Vague'], [sum.kills, 'Ennemis'], ['+' + fmt(out.coins), 'Éclats']];
     const sh = $('resStats'); sh.textContent = '';
     for (const [v, k] of stats) { const d = el('div'); d.append(el('b', null, String(v)), el('span', null, k)); sh.append(d); }
     $('resXp').textContent = `+${fmt(out.xpGot)} XP${out.bonus ? ` · +${out.bonus} éclats bonus` : ''}${out.levelsAfter > out.levelsBefore ? ` · NIVEAU ${out.levelsAfter} !` : ''}${sum.bosses ? ` · ${sum.bosses} boss vaincu${sum.bosses > 1 ? 's' : ''}` : ''}`;
+    if (sum.easy) $('resXp').textContent += ` · gains EASY réduits · ♥ ${sum.livesUsed ? sum.livesUsed + ' utilisée' + (sum.livesUsed > 1 ? 's' : '') + ', ' : ''}reste ${save.lives}`;
     renderMissions($('resMissions'), out.missions, m => D.byId(D.MISSIONS, m.id).text(m.goal));
     const rank = D.rankFor(save.completed);
     $('resRankUp').hidden = !out.rankUp; $('resRankUp').textContent = `RANG ${rank} — multiplicateur x${rank} à la prochaine partie !`;
@@ -491,7 +512,9 @@
       const h = Run.hud();
       setT('hScore', fmt(h.score)); setT('hMult', 'x' + h.mult); setT('hCoins', fmt(h.coins));
       $('hMult').classList.toggle('hot', h.mult > h.base);
-      const beat = save.best > 0 && h.score > save.best; setT('hSub', (beat ? 'RECORD BATTU · ' : 'RECORD ') + fmt(Math.max(save.best, h.score)) + (h.boss ? '' : ` · BOSS À ${fmt(Run.get().nextBoss)}`));
+      const best = h.easy ? save.easy.best : save.best, beat = best > 0 && h.score > best;
+      setT('hSub', (h.easy ? 'EASY · ' : '') + (beat ? 'RECORD BATTU · ' : 'RECORD ') + fmt(Math.max(best, h.score)) + (h.easy || h.boss ? '' : ` · BOSS À ${fmt(Run.get().nextBoss)}`));
+      if (h.easy) setT('hLives', `♥ ${save.lives} VIE${save.lives > 1 ? 'S' : ''} · ${Math.min(save.lives, D.LIFE_PACK.perGame - h.livesUsed)} UTILISABLE${Math.min(save.lives, D.LIFE_PACK.perGame - h.livesUsed) > 1 ? 'S' : ''}`);
       $('hSub').classList.toggle('beat', beat);
       for (const k in powEls) {
         const v = k === 'shield' ? h.power.shield : h.power[k] > 0;
@@ -575,7 +598,7 @@
     else if (state === 'pause') { if (k === 'Escape' || k === 'Enter' || k === 'Space' || action === 'pause') resume(); }
     else if (state === 'menu') {
       if (k === 'Escape' && screen !== 'hub') { E.sfx('click'); if (screen === 'keys') go('settings'); else { RENDER.hub(); show('hub'); } }
-      else if ((k === 'Enter' || (k === 'Space' && screen === 'hub')) && (screen === 'hub' || screen === 'prep')) startGame(screen === 'prep' ? prepMode : 'run');
+      else if ((k === 'Enter' || (k === 'Space' && screen === 'hub')) && (screen === 'hub' || screen === 'prep')) startGame(screen === 'prep' ? prepMode : 'run', screen === 'prep' ? prepOpts() : undefined);
     }
   });
   // Relâchement : une action reste active tant qu'une de ses touches est encore enfoncée.
@@ -650,9 +673,12 @@
   addEventListener('focusout', () => setTimeout(() => { if (!/^(INPUT|TEXTAREA|SELECT)$/.test((document.activeElement || {}).tagName)) scrollTo(0, 0); }, 150)); // le clavier iOS laisse parfois la page décalée
 
   // Boutons des menus
-  $('runBtn').onclick = () => { prepMode = 'run'; go('prep'); };
+  const openRun = easy => { prepMode = 'run'; prepEasy = easy; go('prep'); };
+  $('runBtn').onclick = () => openRun(false);
+  $('easyBtn').onclick = () => openRun(true);
+  $('easyShopBtn').onclick = () => { shopTab = 'life'; go('shop'); };
   $('battleBtn').onclick = () => { prepMode = 'battle'; go('prep'); };
-  $('startBtn').onclick = () => startGame(prepMode);
+  $('startBtn').onclick = () => startGame(prepMode, prepOpts());
   const groupBoard = withPlay => { boardView = 'online'; boardTab = 'battle'; LR.Online.focus('battle', withPlay); go('board'); };
   $('soloBtn').onclick = () => startGame('battle');
   $('friendsBtn').onclick = () => groupBoard(true);

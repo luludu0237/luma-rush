@@ -2,7 +2,7 @@
 'use strict';
 (function (root) {
   const I = typeof module !== 'undefined' && module.exports ? require('./input-core.js') : root.LR.I;
-  const VERSION = '3.2.0';
+  const VERSION = '3.3.0';
 
   // ───────────── Profil : pseudo et photo (un personnage existant, aucune image importée) ─────────────
   const DEFAULT_NAME = 'Coursier';
@@ -17,6 +17,11 @@
   const GRAVITY = 2600, JUMP_V = 900, DBL_V = 760, RISE_CUT = 2.2;
   const SPEED_BASE = 380, SPEED_MAX = 820, UNITS_PER_M = 40, PTS_PER_M = 10;
   const BOSS_EVERY = 10000; // points entre deux boss en RUN MODE
+  // EASY : le Run sans boss. La vitesse monte plus lentement (jamais sous la vitesse de départ : les obstacles restent franchissables),
+  // les obstacles sont plus espacés et les gains sont réduits.
+  const EASY = { ramp: 0.6, gap: 1.2, gains: 0.5 };
+  // Pack de vies, en éclats gagnés en jouant. Utilisable en EASY seulement : les classements RUN et BATTLE ne s'achètent pas.
+  const LIFE_PACK = { lives: 7, price: 700, max: 14, perGame: 3 };
 
   // Obstacles : dessin (w,h), altitude du bas (y), hitbox [dx, dy, w, h]. bob = amplitude de va-et-vient vertical.
   const OT = {
@@ -354,7 +359,7 @@
 
   // ───────────── Règles de jeu pures ─────────────
   const L = {
-    GRAVITY, JUMP_V, DBL_V, RISE_CUT, SPEED_BASE, SPEED_MAX, UNITS_PER_M, PTS_PER_M, BOSS_EVERY, OT, PBOX, MISSIONS,
+    GRAVITY, JUMP_V, DBL_V, RISE_CUT, SPEED_BASE, SPEED_MAX, UNITS_PER_M, PTS_PER_M, BOSS_EVERY, EASY, LIFE_PACK, OT, PBOX, MISSIONS,
     VERSION, DEFAULT_NAME, ASSET_CREDITS, RARITY, RARITIES, LOOT_TABLES, CHARACTERS, SKINS, SKILLS, UPGRADES, WEAPONS, ITEMS, EFFECT, THEMES, BOSSES, ENEMIES, MINIBOSSES,
     WAVE_BOOSTS, DAILY, ACHIEVEMENTS, LEVEL_REWARDS, MAX_LEVEL, levelReward, xpNeed, levelInfo, skillSlots, relicSlots,
     mulberry, hashStr, dayKey, weekKey, upgradePrice,
@@ -427,12 +432,14 @@
   L.priceOf = function (save, kind, id) {
     if (kind === 'upgrade') return upgradePrice(id, save.upgrades[id] || 0);
     if (kind === 'capsule') return 450;
+    if (kind === 'lifepack') return LIFE_PACK.price;
     const def = byId(KINDS[kind][1], id);
     return def && def.price != null && !def.boss ? def.price : null;
   };
   // Achat atomique : soit tout réussit (débit + attribution), soit rien ne change.
   L.buy = function (save, kind, id, rng) {
-    if (kind !== 'upgrade' && kind !== 'capsule') {
+    if (kind === 'lifepack' && save.lives + LIFE_PACK.lives > LIFE_PACK.max) return { ok: false, reason: 'Réserve de vies pleine' };
+    if (kind !== 'upgrade' && kind !== 'capsule' && kind !== 'lifepack') {
       const def = byId(KINDS[kind][1], id);
       if (!def) return { ok: false, reason: 'Objet inconnu' };
       if (L.owns(save, kind, id)) return { ok: false, reason: 'Déjà possédé' };
@@ -446,8 +453,16 @@
     save.coins -= price;
     if (kind === 'upgrade') save.upgrades[id] = (save.upgrades[id] || 0) + 1;
     else if (kind === 'capsule') applyLoot(save, got);
+    else if (kind === 'lifepack') save.lives += LIFE_PACK.lives;
     else save[KINDS[kind][0]].push(id);
     return { ok: true, price, got };
+  };
+
+  // Consomme une vie de la réserve, dans la limite autorisée par partie.
+  L.useLife = function (save, usedThisGame) {
+    if (usedThisGame >= LIFE_PACK.perGame || !(save.lives > 0)) return false;
+    save.lives--;
+    return true;
   };
 
   // Butin : rareté tirée selon la table, puis un objet NON possédé de cette rareté ; sinon compensation en éclats.
@@ -566,7 +581,7 @@
 
   // Classement local : top 10 par mode.
   L.submitScore = function (save, mode, entry) {
-    const list = save.board[mode], key = mode === 'run' ? 'score' : 'wave';
+    const list = mode === 'easy' ? save.easy.board : save.board[mode], key = mode === 'battle' ? 'wave' : 'score';
     list.push(entry); list.sort((a, b) => b[key] - a[key] || (b.score || 0) - (a.score || 0)); list.splice(10);
     return list.indexOf(entry);
   };
@@ -579,7 +594,7 @@
       chars: ['luma'], char: 'luma', skins: ['default'], skinByChar: {}, skills: ['shield'], loadout: ['shield', null, null],
       upgrades: {}, weapons: ['blaster'], weapon: 'blaster', items: [], relics: [null, null], themes: ['cyber'], theme: 'cyber',
       ach: {}, flags: {}, bosses: {}, claimed: [], stats: Object.fromEntries(STAT_KEYS.map(k => [k, 0])),
-      daily: null, weekly: null, streak: { last: '', count: 0, claimed: '' }, board: { run: [], battle: [] }, sfx: true, music: true,
+      lives: 0, easy: { best: 0, bestDist: 0, board: [] }, daily: null, weekly: null, streak: { last: '', count: 0, claimed: '' }, board: { run: [], battle: [] }, sfx: true, music: true,
       profile: { name: DEFAULT_NAME, avatar: 'luma' }, keys: I.defaultKeys(), keyLabels: {}, touch: { portrait: {}, landscape: {} }, runControls: 'buttons',
       opts: { sfxVol: 0.8, musicVol: 0.6, quality: 'auto', shake: true },
     };
@@ -608,6 +623,9 @@
     const num = v => (Number.isFinite(+v) && +v > 0 ? Math.floor(+v) : 0);
     for (const k of ['coins', 'xp', 'best', 'bestDist', 'bestWave', 'completed']) s[k] = num(s[k]);
     s.levelClaimed = Math.max(1, num(s.levelClaimed));
+    s.lives = Math.min(LIFE_PACK.max, num(s.lives));
+    const ez = s.easy && typeof s.easy === 'object' ? s.easy : {};
+    s.easy = { best: num(ez.best), bestDist: num(ez.bestDist), board: (Array.isArray(ez.board) ? ez.board : []).filter(e => e && typeof e === 'object').slice(0, 10) };
     const ids = (arr, list) => [...new Set((Array.isArray(arr) ? arr : []).filter(id => byId(list, id)))];
     s.chars = ids(s.chars, CHARACTERS); if (!s.chars.includes('luma')) s.chars.unshift('luma');
     s.skins = ids(s.skins, SKINS); if (!s.skins.includes('default')) s.skins.unshift('default');

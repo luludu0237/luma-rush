@@ -525,3 +525,20 @@ select:focus-visible, #nameInput:focus-visible { outline: 2px solid var(--cyan);
 .ol-row em.new { background: var(--gold); }
 /* Téléphones étroits : la pastille répétait l'onglet actif et coupait le titre « CLASSEMENT » en deux. */
 @media (max-width: 480px) { #boardPill { display: none; } }
+
+/* Mode EASY et vies */
+.mode.easy { grid-column: 1 / -1; grid-template-columns: auto auto minmax(0, 1fr); align-items: center; column-gap: 12px; text-align: left; justify-items: start; padding-top: 10px; padding-bottom: 10px; background: linear-gradient(135deg, #12b981, #0e7490); box-shadow: 0 14px 40px -12px rgba(16, 185, 129, .7); }
+.mode.easy .mode-ic { grid-row: auto; }
+.easy-note { display: grid; gap: 8px; border-color: rgba(77, 255, 184, .5); font-size: 13px; line-height: 1.45; }
+.easy-note[hidden] { display: none; }
+.easy-note .setline { margin: 0; justify-content: space-between; }
+.easy-note .btn { min-height: 44px; }
+.lives-chip { align-self: flex-start; width: fit-content; margin-top: 4px; padding: 4px 12px; border-radius: 99px; background: rgba(10, 4, 30, .7); border: 1px solid #ff3e8a; color: #ff8ab8; font-weight: 900; font-size: 13px; letter-spacing: .06em; white-space: nowrap; }
+.lives-chip[hidden] { display: none; }
+@media (orientation: landscape) and (max-height: 560px) {
+  /* Trois modes côte à côte : sans l'icône, le texte tient sur la même hauteur que les deux boutons d'avant. */
+  .modes { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
+  .modes .mode, .modes .mode.easy { grid-column: auto; grid-template-columns: minmax(0, 1fr); justify-items: center; text-align: center; padding: 8px 5px; min-height: 52px; }
+  .modes .mode-ic { display: none; }
+  .modes .mode b { font-size: clamp(13px, 2vw, 19px); }
+}

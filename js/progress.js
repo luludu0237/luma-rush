@@ -69,9 +69,9 @@
 
   // ───────────── Partie en cours ─────────────
   P.game = null;
-  P.startGame = function (mode) {
+  P.startGame = function (mode, easy) {
     P.ensureTasks();
-    P.game = { mode, id: Date.now().toString(36) + Math.random().toString(36).slice(2, 7), stats: {}, t0: performance.now(), bosses: 0 };
+    P.game = { mode, easy: !!easy, id: Date.now().toString(36) + Math.random().toString(36).slice(2, 7), stats: {}, t0: performance.now(), bosses: 0 };
   };
   const TOTALS = { jumps: 'jumps', near: 'near', kills: 'kills', elites: 'elites', skillsUsed: 'skillsUsed', bosses: 'bosses', wavesCleared: 'wavesCleared' };
   const TASK_STATS = ['dist', 'coins', 'kills', 'wavesCleared', 'skillsUsed', 'near', 'games', 'bosses'];
@@ -80,7 +80,7 @@
     const prev = g.stats[name] || 0;
     g.stats[name] = abs ? n : prev + n;
     const delta = g.stats[name] - prev;
-    if (delta <= 0) return;
+    if (delta <= 0 || g.easy) return; // EASY : ni statistiques, ni missions, ni défis, ni succès
     if (TOTALS[name]) save.stats[TOTALS[name]] += delta;
     for (const ms of save.missions) { const d = D.byId(D.MISSIONS, ms.id); if (!ms.done && d.stat === name && d.scope === 'total') ms.progress += delta; }
     if (TASK_STATS.includes(name)) for (const set of [save.daily, save.weekly]) if (set) for (const t of set.tasks) if (!t.done && D.taskStat(t) === name) t.progress += delta;
@@ -139,6 +139,7 @@
   P.endGame = function (sum, mods) {
     const g = P.game; if (!g || g.ended) return null;
     g.ended = true;
+    if (g.easy) return endEasy(g, sum, mods);
     const bonus = Math.floor(sum.coins * (mods.coins - 1) + (sum.greed ? sum.coins * 0.25 : 0));
     const coins = sum.coins + bonus;
     save.coins += coins; save.stats.coinsEarned += coins;
@@ -164,5 +165,19 @@
     P.checkAch(); P.persist();
     return out;
   };
+  // Fin de partie EASY : gains réduits et records à part, rien dans les records ni le classement du jeu normal.
+  function endEasy(g, sum, mods) {
+    const bonus = Math.floor(sum.coins * (mods.coins - 1)), coins = Math.floor((sum.coins + bonus) * D.EASY.gains);
+    save.coins += coins;
+    const out = { coins, bonus: 0, record: sum.score > save.easy.best, rank: -1, missions: [], rankUp: false };
+    save.easy.best = Math.max(save.easy.best, sum.score); save.easy.bestDist = Math.max(save.easy.bestDist, sum.dist);
+    out.rank = D.submitScore(save, 'easy', { score: sum.score, dist: sum.dist, char: save.char, date: D.dayKey(new Date()) });
+    out.xpGot = Math.round((sum.dist / 5 + sum.coins * 2) * mods.xp * D.EASY.gains);
+    out.levelsBefore = P.level().level;
+    P.reward({ xp: out.xpGot }, 'xp:' + g.id, 'Fin de partie EASY');
+    out.levelsAfter = P.level().level;
+    P.persist();
+    return out;
+  }
   const E = () => LR.E;
 })(window.LR = window.LR || {});

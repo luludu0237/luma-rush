@@ -23,7 +23,7 @@
 <link rel="apple-touch-startup-image" media="screen and (device-width: 414px) and (device-height: 896px) and (-webkit-device-pixel-ratio: 2) and (orientation: portrait)" href="icons/splash-828x1792.png">
 <link rel="apple-touch-startup-image" media="screen and (device-width: 375px) and (device-height: 667px) and (-webkit-device-pixel-ratio: 2) and (orientation: portrait)" href="icons/splash-750x1334.png">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%2307021a'/%3E%3Crect x='14' y='12' width='36' height='42' rx='16' fill='%233ef2ff'/%3E%3Crect x='27' y='21' width='21' height='14' rx='7' fill='%23120626'/%3E%3Crect x='34' y='24' width='3' height='8' rx='1.5' fill='%23fff'/%3E%3Crect x='40' y='24' width='3' height='8' rx='1.5' fill='%23fff'/%3E%3C/svg%3E">
-<link rel="stylesheet" href="css/style.css?v=3.2">
+<link rel="stylesheet" href="css/style.css?v=3.3">
 </head>
 <body>
 <canvas id="game" aria-label="Luma Rush"></canvas>
@@ -35,6 +35,7 @@
     <div class="score"><span id="hScore">0</span><em id="hMult">x1</em></div>
     <div class="hud-sub" id="hSub"></div>
     <div class="hearts" id="hHearts"></div>
+    <div class="lives-chip" id="hLives" hidden></div>
     <div class="pws" id="hPows"></div>
   </div>
   <div class="hud-r">
@@ -72,6 +73,7 @@
         <div class="modes">
           <button class="mode run" id="runBtn"><span class="mode-ic"><svg viewBox="0 0 24 24"><path d="M13.5 5.5a2 2 0 1 0 0-4 2 2 0 0 0 0 4zM9.8 8.9 7 23h2.1l1.8-8 2.1 2v6h2v-7.5l-2.1-2 .6-3A7.3 7.3 0 0 0 19 13v-2a5.1 5.1 0 0 1-4.4-2.4l-1-1.6a2 2 0 0 0-2.5-.8L6 8.3V13h2V9.6z"/></svg></span><b>RUN MODE</b><small id="runBest">Course infinie</small></button>
           <button class="mode battle" id="battleBtn"><span class="mode-ic"><svg viewBox="0 0 24 24"><path d="M6.9 3 3 3v3.9l7.2 7.2-2.8 2.8-1.4-1.4L4.6 17l2 2-2.6 2.6L5.4 23 8 20.4l2 2 1.4-1.4-1.4-1.4 2.8-2.8 7.2 7.2H21v-3.9L6.9 3zM21 3h-3.9l-5.6 5.6 3.9 3.9L21 6.9z"/></svg></span><b>BATTLE MODE</b><small id="battleBest">Vagues &amp; boss</small></button>
+          <button class="mode easy" id="easyBtn"><span class="mode-ic"><svg viewBox="0 0 24 24"><path d="M12 21.4 10.600 20C5.400 15.400 2 12.300 2 8.500 2 5.400 4.400 3 7.500 3c1.700 0 3.400.8 4.500 2.100C13.100 3.800 14.800 3 16.500 3 19.600 3 22 5.400 22 8.500c0 3.800-3.400 6.900-8.600 11.500z"/></svg></span><b>EASY MODE</b><small id="easyBest">Sans boss · plus tranquille</small></button>
         </div>
         <nav class="navgrid">
           <button data-go="shop"><svg viewBox="0 0 24 24"><path d="M7 18a2 2 0 1 0 0 4 2 2 0 0 0 0-4zM1 2v2h2l3.6 7.6L5.2 14A2 2 0 0 0 7 17h12v-2H7.4l1.1-2h7.5a2 2 0 0 0 1.8-1l3.6-6.5A1 1 0 0 0 20.5 4H5.2l-.9-2zm16 16a2 2 0 1 0 0 4 2 2 0 0 0 0-4z"/></svg>BOUTIQUE</button>
@@ -99,6 +101,7 @@
   <div class="sheet">
     <div class="sheet-head"><button class="btn back" data-back>←</button><h2 id="prepTitle">PRÉPARATION</h2><div class="pill"><i class="shard"></i><b class="coinsNow">0</b></div></div>
     <div class="battle-ways" id="battleWays" hidden><button class="btn primary" id="soloBtn">JOUER EN SOLO</button><button class="btn" id="friendsBtn">JOUER AVEC MES AMIS</button><button class="btn" id="groupBoardBtn">CLASSEMENT DU GROUPE</button></div>
+    <div class="panel easy-note" id="easyNote" hidden><p><b>Mode EASY</b> : aucun boss, vitesse qui monte plus lentement, obstacles plus espacés. Records à part, non envoyés au classement entre amis ; éclats et XP réduits de moitié, sans missions ni succès.</p><div class="setline"><b id="easyLives"></b><button class="btn" id="easyShopBtn">BOUTIQUE DE VIES</button></div></div>
     <h3>Personnage</h3><div class="chars" id="prepChars"></div>
     <h3>Compétences <small id="prepSlots"></small></h3><div class="chips" id="prepSkills"></div>
     <div id="prepWeaponBox"><h3>Arme <small id="prepWeaponNote"></small></h3><div class="chips" id="prepWeapons"></div></div>
@@ -207,19 +210,19 @@
   });
 })();
 </script>
-<script src="js/input-core.js?v=3.2"></script>
-<script src="js/data.js?v=3.2"></script>
-<script src="js/engine.js?v=3.2"></script>
-<script src="js/progress.js?v=3.2"></script>
-<script src="js/session.js?v=3.2"></script>
-<script src="js/bosses.js?v=3.2"></script>
-<script src="js/run.js?v=3.2"></script>
-<script src="js/battle.js?v=3.2"></script>
-<script src="js/controls.js?v=3.2"></script>
-<script src="js/profile.js?v=3.2"></script>
-<script src="js/config.js?v=3.2"></script>
-<script src="js/online.js?v=3.2"></script>
-<script src="js/ui.js?v=3.2"></script>
+<script src="js/input-core.js?v=3.3"></script>
+<script src="js/data.js?v=3.3"></script>
+<script src="js/engine.js?v=3.3"></script>
+<script src="js/progress.js?v=3.3"></script>
+<script src="js/session.js?v=3.3"></script>
+<script src="js/bosses.js?v=3.3"></script>
+<script src="js/run.js?v=3.3"></script>
+<script src="js/battle.js?v=3.3"></script>
+<script src="js/controls.js?v=3.3"></script>
+<script src="js/profile.js?v=3.3"></script>
+<script src="js/config.js?v=3.3"></script>
+<script src="js/online.js?v=3.3"></script>
+<script src="js/ui.js?v=3.3"></script>
 
 <script>
 if ('serviceWorker' in navigator) {

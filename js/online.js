@@ -119,13 +119,14 @@
   let ticket = null;
   O.begin = function (mode) {
     const c = api();
-    ticket = c.configured && c.session() ? c.rpc('lr_start_game', { p_mode: mode }).catch(() => null) : null;
+    // mode vide (partie EASY) : aucun ticket, donc aucun score ne peut partir au classement
+    ticket = mode && c.configured && c.session() ? c.rpc('lr_start_game', { p_mode: mode }).catch(() => null) : null;
   };
   let sending = Promise.resolve();
   O.finish = sum => (sending = send(sum).catch(() => {}));
   async function send(sum) {
     const t = ticket; ticket = null;
-    if (!t) return;
+    if (!t || sum.easy) return;
     const id = await t;
     if (!id) { toast('Partie commencée hors ligne : score non classé', '⚠'); return; }
     const int = v => Math.max(0, Math.floor(v || 0)), run = sum.mode === 'run';
