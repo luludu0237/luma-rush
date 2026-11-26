@@ -1,7 +1,7 @@
 /* Luma Rush — service worker : tout le jeu est mis en cache à l'installation, puis servi hors ligne.
    À chaque nouvelle version du jeu, changer VERSION (et le ?v= de index.html) pour que les joueurs reçoivent la mise à jour. */
 'use strict';
-const VERSION = 'luma-rush-3.0';
+const VERSION = 'luma-rush-3.1';
 const FILES = [
   './', 'index.html', 'manifest.webmanifest', 'css/style.css',
   'js/input-core.js', 'js/controls.js', 'js/profile.js', 'js/data.js', 'js/engine.js', 'js/progress.js', 'js/session.js', 'js/bosses.js', 'js/run.js', 'js/battle.js', 'js/config.js', 'js/online.js', 'js/ui.js',
@@ -14,7 +14,8 @@ const FILES = [
 ];
 
 self.addEventListener('install', e => {
-  e.waitUntil(caches.open(VERSION).then(c => c.addAll(FILES)).then(() => self.skipWaiting()));
+  // 'reload' : sans lui, le cache du navigateur (10 min sur GitHub Pages) peut remplir la nouvelle version avec les anciens fichiers, pour toujours.
+  e.waitUntil(caches.open(VERSION).then(c => c.addAll(FILES.map(f => new Request(f, { cache: 'reload' })))).then(() => self.skipWaiting()));
 });
 self.addEventListener('activate', e => {
   e.waitUntil(caches.keys()
